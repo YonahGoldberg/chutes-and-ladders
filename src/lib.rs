@@ -1,5 +1,5 @@
 use rand::Rng;
-
+use std::collections::HashMap;
 
 #[derive(Clone, Copy)]
 enum Square {
@@ -24,7 +24,13 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new(player_names: Vec<String>) -> Game {
+    //Returns a new chutes game if there are at least 2 players
+    //Otherwise returns an error
+    pub fn new(player_names: Vec<String>) -> Result<Game, &'static str> {
+        if player_names.len() < 2 {
+            return Err("Not enough players");
+        }
+        
         let mut board = [Square::Empty; 101];
         
         for i in 1..100 {
@@ -57,7 +63,53 @@ impl Game {
             players.push(Player { name, square: 1 });
         }
 
-        Game { players, board, move_num: 1 , turn: 0, game_over: false}
+        println!("Spinning to see who goes first...");
+
+        let mut rng = rand::thread_rng();
+        let mut player_spins = HashMap::new();
+        
+        let mut spinners = Vec::new();
+        for i in 0..players.len() {
+            spinners.push(i);
+        }
+
+        //Turn is the index into the players vector for the player that goes first
+        let turn = loop {
+            for i in &spinners {
+                let spin = rng.gen_range(1..6) as usize;
+                println!("{} spins {}.", players.get(*i).unwrap().name, spin);
+                player_spins.insert(*i, spin);
+            }
+
+            let mut maxes = Vec::new();
+            for (k, spin) in &player_spins {
+                if maxes.is_empty() {
+                    maxes.push((*k, *spin));
+                }
+                else if *spin == maxes.get(0).unwrap().1{ 
+                    maxes.push((*k, *spin));
+                }
+                else if *spin > maxes.get(0).unwrap().1 {
+                    maxes.clear();
+                    maxes.push((*k, *spin));
+                }
+            }
+
+            if maxes.len() == 1 {
+                let player_num = maxes.pop().unwrap().0;
+                println!("{} goes first!", players.get(player_num).unwrap().name);
+                break player_num;
+            }
+
+            println!("Tie! Spinning again...");
+            player_spins.clear();
+            spinners.clear();
+            for (k, _) in maxes {
+                spinners.push(k);
+            }
+        };   
+
+        Ok(Game { players, board, move_num: 1, turn, game_over: false})
     }
 
     //Play one turn and move player accordingly
